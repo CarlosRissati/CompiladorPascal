@@ -1,0 +1,3 @@
+D:/Coisas/estudos/faculdade/ZeLuis/Compiladores/MyCompiler/build/CMakeFiles/compiler.dir
+D:/Coisas/estudos/faculdade/ZeLuis/Compiladores/MyCompiler/build/CMakeFiles/edit_cache.dir
+D:/Coisas/estudos/faculdade/ZeLuis/Compiladores/MyCompiler/build/CMakeFiles/rebuild_cache.dir

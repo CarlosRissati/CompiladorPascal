@@ -1,0 +1,3 @@
+/mnt/d/coisas/estudos/faculdade/ZeLuis/Compiladores/MyCompiler/buildBinaria/CMakeFiles/compiler.dir
+/mnt/d/coisas/estudos/faculdade/ZeLuis/Compiladores/MyCompiler/buildBinaria/CMakeFiles/edit_cache.dir
+/mnt/d/coisas/estudos/faculdade/ZeLuis/Compiladores/MyCompiler/buildBinaria/CMakeFiles/rebuild_cache.dir

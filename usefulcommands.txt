@@ -1,0 +1,2 @@
+cmake --build build <-- buildar o programa 
+./build/compiler <-- onde está o binario/executavel do programada buildado

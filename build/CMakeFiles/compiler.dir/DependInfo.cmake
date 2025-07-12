@@ -8,11 +8,17 @@ set(CMAKE_DEPENDS_LANGUAGES
 
 # The set of dependency files which are needed:
 set(CMAKE_DEPENDS_DEPENDENCY_FILES
-  "D:/Coisas/estudos/faculdade/ZeLuis/Compiladores/MyCompiler/src/main.cpp" "CMakeFiles/compiler.dir/src/main.cpp.obj" "gcc" "CMakeFiles/compiler.dir/src/main.cpp.obj.d"
+  "/home/luka/Documentos/UNESPAR/Compiladores/CompiladorPascal/src/analisador_semantico.cpp" "CMakeFiles/compiler.dir/src/analisador_semantico.cpp.o" "gcc" "CMakeFiles/compiler.dir/src/analisador_semantico.cpp.o.d"
+  "/home/luka/Documentos/UNESPAR/Compiladores/CompiladorPascal/src/main.cpp" "CMakeFiles/compiler.dir/src/main.cpp.o" "gcc" "CMakeFiles/compiler.dir/src/main.cpp.o.d"
+  "" "compiler" "gcc" "CMakeFiles/compiler.dir/link.d"
   )
 
 # Targets to which this target links which contain Fortran sources.
 set(CMAKE_Fortran_TARGET_LINKED_INFO_FILES
+  )
+
+# Targets to which this target links which contain Fortran sources.
+set(CMAKE_Fortran_TARGET_FORWARD_LINKED_INFO_FILES
   )
 
 # Fortran module output directory.

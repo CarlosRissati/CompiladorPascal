@@ -1,8 +1,0 @@
-[
-{
-  "directory": "D:/Coisas/estudos/faculdade/ZeLuis/Compiladores/MyCompiler/build",
-  "command": "C:\\msys64\\ucrt64\\bin\\g++.exe   -g -std=gnu++20 -o CMakeFiles\\compiler.dir\\src\\main.cpp.obj -c D:\\Coisas\\estudos\\faculdade\\ZeLuis\\Compiladores\\MyCompiler\\src\\main.cpp",
-  "file": "D:/Coisas/estudos/faculdade/ZeLuis/Compiladores/MyCompiler/src/main.cpp",
-  "output": "CMakeFiles/compiler.dir/src/main.cpp.obj"
-}
-]

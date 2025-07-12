@@ -1,10 +1,11 @@
 file(REMOVE_RECURSE
-  "CMakeFiles/compiler.dir/src/main.cpp.obj"
-  "CMakeFiles/compiler.dir/src/main.cpp.obj.d"
-  "compiler.exe"
-  "compiler.exe.manifest"
+  "CMakeFiles/compiler.dir/link.d"
+  "CMakeFiles/compiler.dir/src/analisador_semantico.cpp.o"
+  "CMakeFiles/compiler.dir/src/analisador_semantico.cpp.o.d"
+  "CMakeFiles/compiler.dir/src/main.cpp.o"
+  "CMakeFiles/compiler.dir/src/main.cpp.o.d"
+  "compiler"
   "compiler.pdb"
-  "libcompiler.dll.a"
 )
 
 # Per-language clean rules from dependency scanning.

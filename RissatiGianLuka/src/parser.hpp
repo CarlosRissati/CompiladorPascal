@@ -1,503 +1,385 @@
-#pragma once
-#include <vector>
-#include <iostream>
+#ifndef PARSER_HPP
+#define PARSER_HPP
 
+#include <memory>
+#include <vector>
+#include <string>
+#include <stdexcept>
 #include "tokenization.hpp"
 
-struct NodeExpr {
-    Token int_lit;
+class Node;
+class ExprNode;
+class StmtNode;
+class ProgramNode;
+class ConstSectionNode;
+class VarSectionNode;
+class TypeSectionNode;
+class FunctionDeclNode;
+class BlockNode;
+class IfNode;
+class WhileNode;
+class ForNode;
+class RepeatNode;
+class CaseNode;
+class AssignNode;
+class ProcCallNode;
+class LiteralNode;
+class IdentifierNode;
+class BinaryOpNode;
+
+class Node { public: virtual ~Node() = default; };
+using NodePtr = std::unique_ptr<Node>;
+
+
+class ExprNode : public Node { public: virtual ~ExprNode() = default; };
+using ExprPtr = std::unique_ptr<ExprNode>;
+
+class StmtNode : public Node { public: virtual ~StmtNode() = default; };
+using StmtPtr = std::unique_ptr<StmtNode>;
+
+
+class ProgramNode : public Node {
+public:
+    Token name;
+    StmtPtr vars;
+    StmtPtr mainBlock;
+    ProgramNode(Token n, StmtPtr v, StmtPtr m)
+      : name(std::move(n)), vars(std::move(v)), mainBlock(std::move(m)) {}
 };
 
-struct NodeExit {
-    NodeExpr expr;
+// Nó para a seção VAR
+class VarSectionNode : public StmtNode {
+public:
+    std::vector<std::pair<Token, Token>> entries;
+    VarSectionNode(std::vector<std::pair<Token, Token>> e) : entries(std::move(e)) {}
 };
+
+// Nó para um bloco BEGIN...END
+class BlockNode : public StmtNode {
+public:
+    std::vector<StmtPtr> statements;
+    BlockNode(std::vector<StmtPtr> stmts) : statements(std::move(stmts)) {}
+};
+
+// Nó para o comando IF-THEN-ELSE
+class IfNode : public StmtNode {
+public:
+    ExprPtr cond;
+    StmtPtr thenBr;
+    StmtPtr elseBr;
+    IfNode(ExprPtr c, StmtPtr t, StmtPtr e) : cond(std::move(c)), thenBr(std::move(t)), elseBr(std::move(e)) {}
+};
+
+// Nó para o laço WHILE
+class WhileNode : public StmtNode {
+public:
+    ExprPtr cond;
+    StmtPtr body;
+    WhileNode(ExprPtr c, StmtPtr b) : cond(std::move(c)), body(std::move(b)) {}
+};
+
+// Nó para o laço FOR
+class ForNode : public StmtNode {
+public:
+    Token var;
+    ExprPtr start;
+    ExprPtr end;
+    bool toUp;
+    StmtPtr body;
+    ForNode(Token v, ExprPtr s, ExprPtr e, bool u, StmtPtr b) : var(std::move(v)), start(std::move(s)), end(std::move(e)), toUp(u), body(std::move(b)) {}
+};
+
+// Nó para o laço REPEAT...UNTIL
+class RepeatNode : public StmtNode {
+public:
+    std::vector<StmtPtr> body;
+    ExprPtr cond;
+    RepeatNode(std::vector<StmtPtr> b, ExprPtr c) : body(std::move(b)), cond(std::move(c)) {}
+};
+
+// Nó para o comando de atribuição
+class AssignNode : public StmtNode {
+public:
+    Token target;
+    ExprPtr value;
+    AssignNode(Token t, ExprPtr v) : target(std::move(t)), value(std::move(v)) {}
+};
+
+// Nó para um valor literal
+class LiteralNode : public ExprNode {
+public:
+    Token value;
+    LiteralNode(Token v) : value(std::move(v)) {}
+};
+
+// Nó para um identificador (uso de uma variável)
+class IdentifierNode : public ExprNode {
+public:
+    Token identifier;
+    IdentifierNode(Token id) : identifier(std::move(id)) {}
+};
+
+class BinaryOpNode : public ExprNode {
+public:
+    ExprPtr left;
+    Token op;
+    ExprPtr right;
+    BinaryOpNode(ExprPtr l, Token o, ExprPtr r) : left(std::move(l)), op(std::move(o)), right(std::move(r)) {}
+};
+
 
 class Parser {
 public:
-    explicit Parser(std::vector<Token> tokens) : m_tokens(std::move(tokens)){}
+    Parser(const std::vector<Token>& toks) : tokens(toks), pos(0) {}
 
-    void parse(){
-        program();
-    }
-
-private: 
-    std::string TokenTypeToString(TokenType type) {
-        switch (type) {
-            case TokenType::PROGRAM: return "PROGRAM";
-            case TokenType::VAR: return "VAR";
-            case TokenType::CONST: return "CONST";
-            case TokenType::PROCEDURE: return "PROCEDURE";
-            case TokenType::FUNCTION: return "FUNCTION";
-            case TokenType::LABEL: return "LABEL";
-            case TokenType::BEGIN: return "BEGIN";
-            case TokenType::DOWNTO: return "DOWNTO";
-            case TokenType::TO: return "TO";
-            case TokenType::END: return "END";
-            case TokenType::IF: return "IF";
-            case TokenType::THEN: return "THEN";
-            case TokenType::ELSE: return "ELSE";
-            case TokenType::RAISE: return "RAISE";
-            case TokenType::CATCH: return "CATCH";
-            case TokenType::TRY: return "TRY";
-            case TokenType::FINALLY: return "FINALLY";
-            case TokenType::RECORD: return "RECORD";
-            case TokenType::REPEAT: return "REPEAT";
-            case TokenType::TYPE: return "TYPE";
-            case TokenType::UNTIL: return "UNTIL";
-            case TokenType::USES: return "USES";
-            case TokenType::WHILE: return "WHILE";
-            case TokenType::FOR: return "FOR";
-            case TokenType::DO: return "DO";
-            case TokenType::OR: return "OR";
-            case TokenType::IN: return "IN";
-            case TokenType::AND: return "AND";
-            case TokenType::NOT: return "NOT";
-            case TokenType::DIV: return "DIV";
-            case TokenType::IDENTIFIER: return "IDENTIFIER";
-            case TokenType::INTEGER: return "INTEGER";
-            case TokenType::REAL: return "REAL";
-            case TokenType::BOOLEAN: return "BOOLEAN";
-            case TokenType::STRING: return "STRING";
-            case TokenType::INT_LIT: return "INT_LIT";
-            case TokenType::REAL_LIT: return "REAL_LIT";
-            case TokenType::BOOL_LIT: return "BOOL_LIT";
-            case TokenType::STRING_LIT: return "STRING_LIT";
-            case TokenType::ASSIGN: return "ASSIGN";
-            case TokenType::PLUS: return "PLUS";
-            case TokenType::MINUS: return "MINUS";
-            case TokenType::MULTIPLY: return "MULTIPLY";
-            case TokenType::DIVIDE: return "DIVIDE";
-            case TokenType::LESS: return "LESS";
-            case TokenType::GREATER: return "GREATER";
-            case TokenType::LESS_EQUAL: return "LESS_EQUAL";
-            case TokenType::GREATER_EQUAL: return "GREATER_EQUAL";
-            case TokenType::EQUAL: return "EQUAL";
-            case TokenType::NOT_EQUAL: return "NOT_EQUAL";
-            case TokenType::OPEN_PAREN: return "OPEN_PAREN";
-            case TokenType::CLOSE_PAREN: return "CLOSE_PAREN";
-            case TokenType::OPEN_BRACK: return "OPEN_BRACK";
-            case TokenType::CLOSE_BRACK: return "CLOSE_BRACK";
-            case TokenType::DOT: return "DOT";
-            case TokenType::COMMA: return "COMMA";
-            case TokenType::SEMICOLON: return "SEMICOLON";
-            case TokenType::COLON: return "COLON";
-            default: return "UNKNOWN";
+    std::unique_ptr<ProgramNode> parseProgram() {
+        try {
+            return program();
+        } catch (const std::runtime_error& e) {
+            std::cerr << e.what() << std::endl;
+            return nullptr;
         }
     }
 
-    const std::vector<Token> m_tokens;
-    size_t m_index = 0;
+private:
+    const std::vector<Token>& tokens;
+    size_t pos;
 
-    Token current() const {
-        if (m_index >= m_tokens.size()){
-            std::cerr << "Erro: Fim inesperado da lista de tokens." << std::endl;
-            exit(EXIT_FAILURE);
-        }
-        return m_tokens[m_index];
+    const Token& peek(int offset = 0) const {
+        if (pos + offset >= tokens.size()) throw std::runtime_error("Fim inesperado do arquivo.");
+        return tokens[pos + offset];
     }
-
-    Token advance() {
-        if (m_index < m_tokens.size()){
-            return m_tokens[m_index++];
-        }
-        std::cerr << "Erro: tentativa de avançar além do fim." << std::endl;
-        return m_tokens.back();
+    const Token& advance() {
+        if (pos >= tokens.size()) throw std::runtime_error("Fim inesperado do arquivo ao avancar.");
+        return tokens[pos++];
     }
-
-    bool match(TokenType type){
-        if(current().type == type){
-            advance();
-            return true;
-        }
-        return false;
+    bool match(Tipo_de_token type) {
+        if (pos >= tokens.size() || tokens[pos].type != type) return false;
+        pos++;
+        return true;
     }
-
-    Token lookahead(int offset = 1) const{
-        if(m_index + offset >= m_tokens.size()){
-            return m_tokens.back();
-        }
-        return m_tokens[m_index + offset];
-    }
-
-    void expect(TokenType type, const std::string& msg){
-        if(!match(type)){
-            std::cerr << "Erro sintático: " << msg << " (esperado: " << TokenTypeToString(type) << ", encontrado: " << TokenTypeToString(current().type)<< ")" << std::endl;
-            exit(EXIT_FAILURE);
-        }
-    }
-
-
-    //parsing
-    void program(){
-        // std::cout << "DEBUG: current antes de program= " << TokenTypeToString(current().type) << "\n";
-        expect(TokenType::PROGRAM, "Esperado 'program'");
-        // std::cout << "DEBUG: current antes de identifier= " << TokenTypeToString(current().type) << "\n";
-        expect(TokenType::IDENTIFIER, "Esperado identificador do programa");
-        // std::cout << "DEBUG: current antes de semicolon= " << TokenTypeToString(current().type) << "\n";
-        expect(TokenType::SEMICOLON, "Esperado ';' após o nome do programa");
-        // std::cout << "DEBUG: current antes de label= " << TokenTypeToString(current().type) << "\n";
-
-        // declaracoes2();
-
-        if (match(TokenType::LABEL)) declaracoes_label();
-        // std::cout << "DEBUG: current antes de const= " << TokenTypeToString(current().type) << "\n";
-        if (match(TokenType::CONST)) declaracoes_const();
-        // std::cout << "DEBUG: current antes de type= " << TokenTypeToString(current().type) << "\n";
-        if (match(TokenType::TYPE)) declaracoes_type();
-        // std::cout << "DEBUG: current antes de var= " << TokenTypeToString(current().type) << "\n";
-        if (match(TokenType::VAR)) declaracoes_var();
-        // std::cout << "DEBUG: current antes de procudure= " << TokenTypeToString(current().type) << "\n";
-        
-        declaracoes_func_procedure(); // procedures e functions
-
-        // std::cout << "DEBUG: current = antes de bloco" << TokenTypeToString(current().type) << "\n";
-        bloco();
-        expect(TokenType::DOT, "Esperado '.' ao final do programa");
-    }
-
-    void declaracoes_var(){
-        // expect(TokenType::VAR, "Esperado 'var'");
-        // lista_var();
-        // expect(TokenType::COLON, "Esperado ':' após os nomes declarados");
-        // tipo();
-        // expect(TokenType::SEMICOLON, "Esperado ';' após a declaração de tipos");
-
-        // expect(TokenType::VAR, "Esperado 'var'");
-    
-        do {
-            lista_var();
-            expect(TokenType::COLON, "Esperado ':' após os nomes declarados");
-            tipo();
-            expect(TokenType::SEMICOLON, "Esperado ';' após a declaração de tipos");
-        } while (current().type == TokenType::IDENTIFIER);
-    }
-
-    void lista_var(){
-        expect(TokenType::IDENTIFIER, "Esperado nome de variavel");
-        while(match(TokenType::COMMA)){
-            expect(TokenType::IDENTIFIER, "Esperado nome de vaiável após ','");
-        }
-    }
-
-    void tipo(){
-        if(!(match(TokenType::INTEGER) || match(TokenType::REAL) || match(TokenType::BOOLEAN) || match(TokenType::STRING))){
-            std::cerr << "Erro: tipo esperado (integer, real, boolean ou string)" << std::endl;
-            exit(EXIT_FAILURE);
-        }
-    }
-
-    void bloco(){
-        expect(TokenType::BEGIN, "Esperado incialização de bloco(begin)");
-        lista_comandos();
-        expect(TokenType::END, "Esperado finalização de bloco(end)");
-    }
-
-    void lista_comandos(){
-        while(current().type != TokenType::END && current().type != TokenType::DOT){
-            comando();
-            expect(TokenType::SEMICOLON, "Esperado ';' após comando");
-        }
-    }
-
-    void comando(){
-        if(match(TokenType::IF)){
-            comando_if();
-        }else if(match(TokenType::WHILE)){
-            comando_while();
-        }else if(match(TokenType::REPEAT)){
-            comando_repeat();
-        }else if(match(TokenType::FOR)){
-            comando_for();
-        }else if(lookahead().type == TokenType::OPEN_PAREN){
-            chamada_funcao_argumentos();
-        }else if(lookahead().type == TokenType::ASSIGN){
-            atribuicao();
-        }else if(match(TokenType::BEGIN)){
-            comando_composto    ();
-        }else if (match(TokenType::TRY)) {
-            comando_try();
-        }else if (match(TokenType::CASE)) {
-            comando_case();
-        } else if (current().type == TokenType::IDENTIFIER) {
-            if (lookahead().type == TokenType::OPEN_PAREN) {
-                match(TokenType::IDENTIFIER);
-                match(TokenType::OPEN_PAREN);
-                chamada_funcao_argumentos();
-            } else if (lookahead().type == TokenType::ASSIGN) {
-                atribuicao(); // consome o IDENTIFIER
-            } else {
-                std::cerr << "Erro: comando iniciado por identificador inválido\n";
-                exit(EXIT_FAILURE);
+    const Token& expect(Tipo_de_token type, const std::string& msg) {
+        if (pos >= tokens.size() || tokens[pos].type != type) {
+            std::string errmsg = "Erro sintatico: " + msg;
+            if(pos < tokens.size()){
+                errmsg += " (esperado '" + TokenTypeToString(type) + "', encontrado '" + TokenTypeToString(peek().type) + "' na linha " + std::to_string(peek().line) + ")";
             }
-        }else {
-            std::cerr << "Erro: comando inválido." << std::endl;
-            exit(EXIT_FAILURE);
+            throw std::runtime_error(errmsg);
         }
+        return tokens[pos++];
     }
 
-    void chamada_funcao_argumentos(){
-        // expect(TokenType::IDENTIFIER, "Esperado nome da função");
-        // expect(TokenType::OPEN_PAREN, "Esperado '('");
-        // expressao();
-        if (current().type != TokenType::CLOSE_PAREN) {
-            expressao();
-            while (match(TokenType::COMMA)) {
-                expressao();
-            }
-        }
-        expect(TokenType::CLOSE_PAREN, "Esperado ')'");
-    }
+    // Métodos de parsing para cada regra da gramática
+    std::unique_ptr<ProgramNode> program();
+    StmtPtr parseVarDecl();
+    StmtPtr parseBlock();
+    StmtPtr parseStatement();
+    StmtPtr parseIf();
+    StmtPtr parseWhile();
+    StmtPtr parseFor();
+    StmtPtr parseRepeat();
+    StmtPtr parseAssignment();
 
-    void atribuicao(){
-        expect(TokenType::IDENTIFIER, "Esperado identificador");
-        expect(TokenType::ASSIGN, "Esperado ':='"); //provavelmente n necessario por estar chamando atribuicao que um token de assign é encontrado
-        expressao();
-    }
+    ExprPtr parseExpression();
+    ExprPtr parseRelational();
+    ExprPtr parseAdditive();
+    ExprPtr parseMultiplicative();
+    ExprPtr parsePrimary();
 
-    void expressao(){
-        termo();
-        while(match(TokenType::PLUS) || match(TokenType::MINUS)){
-            termo();
-        }
-    }
-
-    void termo(){
-        fator();
-        while(match(TokenType::MULTIPLY) || match(TokenType::DIVIDE) || match(TokenType::DIV)){
-            fator();
-        }
-    }
-
-    void fator(){
-        if(match(TokenType::NOT)){
-            fator();
-        }else if(match(TokenType::OPEN_PAREN)){
-            expressao();
-            expect(TokenType::CLOSE_PAREN, "Esperado ')'");
-        }else if(match(TokenType::IDENTIFIER)){
-            if(match(TokenType::OPEN_PAREN)){
-                chamada_funcao_argumentos();
-            }
-        } else if(match(TokenType::INT_LIT) || match(TokenType::REAL_LIT)){
-            return;
-        } else {
-            std::cerr << "Erro: fator invalido";
-            exit(EXIT_FAILURE); 
-        }
-    }
-
-    void expr_relacional(){
-        expressao();
-        if(match(TokenType::EQUAL) || match(TokenType::LESS) || match(TokenType::GREATER) || match(TokenType::LESS_EQUAL) || match(TokenType::GREATER_EQUAL) || match(TokenType::NOT_EQUAL)){
-            expressao();
-        }
-    }
-
-    void comando_composto(){
-        // expect(TokenType::BEGIN, "Esperado 'begin'");
-        lista_comandos();
-        expect(TokenType::END, "Esperado 'end'");
-    }
-
-    void comando_if(){
-        // expect(TokenType::IF, "Esperado 'if'");
-        expr_relacional();
-        expect(TokenType::THEN, "Esperado 'then'");
-        comando();
-        if (match(TokenType::ELSE)){
-            comando();
-        }
-    }
-
-    void comando_while(){
-        // expect(TokenType::WHILE, "Esperado 'while'");
-        expr_relacional();
-        expect(TokenType::DO, "Esperado 'do'");
-        comando();
-    }
-
-    void comando_repeat(){
-        // expect(TokenType::REPEAT, "Esperado 'repeat'");
-        do {
-            comando();
-            expect(TokenType::SEMICOLON, "Esperado ';' entre comandos");
-        }while(current().type != TokenType::UNTIL);
-        expect(TokenType::UNTIL, "Esperado 'until'");
-        expr_relacional();
-    }
-
-    void comando_for(){
-        // expect(TokenType::FOR, "Esperado 'for'");
-        expect(TokenType::IDENTIFIER, "Esperado variavel de controle");
-        expect(TokenType::ASSIGN, "Esperado ':='");
-        expressao();
-        if(!(match(TokenType::TO) || match(TokenType::DOWNTO))){
-            std::cerr << "Esperado 'to' ou 'downto'" << std::endl;
-            exit(EXIT_FAILURE);
-        }
-        expressao();
-        expect(TokenType::DO, "Esperado 'do'");
-        comando();
-    }
-
-    void declaracao_procedure(){
-        // expect(TokenType::PROCEDURE, "Esperado 'procedure'");
-        expect(TokenType::IDENTIFIER, "Esperado nome da procedure");
-        if(match(TokenType::OPEN_PAREN)){
-            lista_parametros();
-            expect(TokenType::CLOSE_PAREN, "Esperado ')'");
-        }
-        expect(TokenType::SEMICOLON, "Esperado ';'");
-        bloco();
-        expect(TokenType::SEMICOLON, "Esperado ';' após bloco de procedure");
-    }
-
-    void declaracao_function() {
-        // expect(TokenType::FUNCTION, "Esperado 'function'");
-        expect(TokenType::IDENTIFIER, "Esperado nome da função");
-        if (match(TokenType::OPEN_PAREN)) {
-            lista_parametros();
-            expect(TokenType::CLOSE_PAREN, "Esperado ')'");
-        }
-        expect(TokenType::COLON, "Esperado ':' após nome da função");
-        tipo();
-        expect(TokenType::SEMICOLON, "Esperado ';'");
-        bloco();
-        expect(TokenType::SEMICOLON, "Esperado ';' após bloco da função");
-    }
-
-    void lista_parametros() {
-        lista_var();
-        expect(TokenType::COLON, "Esperado ':' após parâmetros");
-        tipo();
-        while (match(TokenType::SEMICOLON)) {
-            lista_var();
-            expect(TokenType::COLON, "Esperado ':' após parâmetros");
-            tipo();
-        }
-    }
-
-    // void declaracao_label() {
-    //     expect(TokenType::LABEL, "Esperado 'label'");
-    //     expect(TokenType::INT_LIT, "Esperado número de label");
-    //     while (match(TokenType::COMMA)) {
-    //         expect(TokenType::INT_LIT, "Esperado número de label");
-    //     }
-    //     expect(TokenType::SEMICOLON, "Esperado ';'");
-    // }
-
-    void declaracoes_type() {
-        // expect(TokenType::TYPE, "Esperado 'type'");
-
-        do {
-            expect(TokenType::IDENTIFIER, "Esperado nome do novo tipo");
-            expect(TokenType::EQUAL, "Esperado '='");
-
-            if (match(TokenType::RECORD)) {
-                do {
-                    expect(TokenType::IDENTIFIER, "Esperado campo do record");
-                    expect(TokenType::COLON, "Esperado ':'");
-                    tipo();
-                    expect(TokenType::SEMICOLON, "Esperado ';'");
-                } while (current().type == TokenType::IDENTIFIER);
-
-                expect(TokenType::END, "Esperado 'end' no final do record");
-            } else {
-                tipo(); // inteiro, real, boolean, string, etc.
-            }
-
-            expect(TokenType::SEMICOLON, "Esperado ';' após declaração de tipo");
-        } while (current().type == TokenType::IDENTIFIER);
-
-        // expect(TokenType::TYPE, "Esperado 'type'");
-        // expect(TokenType::IDENTIFIER, "Esperado nome do tipo");
-        // expect(TokenType::EQUAL, "Esperado '='");
-
-        // if (match(TokenType::RECORD)) {
-        //     do {
-        //         expect(TokenType::IDENTIFIER, "Esperado campo do record");
-        //         expect(TokenType::COLON, "Esperado ':'");
-        //         tipo();
-        //         expect(TokenType::SEMICOLON, "Esperado ';'");
-        //     } while (current().type == TokenType::IDENTIFIER);
-        //     expect(TokenType::END, "Esperado 'end' do record");
-        // } else {
-        //     tipo(); // outro tipo básico
-        // }
-
-        // expect(TokenType::SEMICOLON, "Esperado ';'");
-    }
-
-    void comando_try() {
-        // expect(TokenType::TRY, "Esperado 'try'");
-        lista_comandos();
-
-        if (match(TokenType::CATCH) || match(TokenType::EXCEPT)) {
-            lista_comandos();
-        }
-
-        if (match(TokenType::FINALLY)) {
-            lista_comandos();
-        }
-
-        expect(TokenType::END, "Esperado 'end' ao final do try/catch");
-    }
-
-    void comando_case() {
-        expect(TokenType::CASE, "Esperado 'case'");
-        expressao();
-        expect(TokenType::OF, "Esperado 'of'");
-
-        do {
-            expect(TokenType::INT_LIT, "Esperado valor do case");
-            expect(TokenType::COLON, "Esperado ':'");
-            comando();
-            expect(TokenType::SEMICOLON, "Esperado ';'");
-        } while (current().type == TokenType::INT_LIT);
-
-        if (match(TokenType::ELSE)) {
-            comando();
-            expect(TokenType::SEMICOLON, "Esperado ';'");
-        }
-
-        expect(TokenType::END, "Esperado 'end' ao final do case");
-    }
-
-    void declaracoes_func_procedure() {
-        while (true) {
-            if (match(TokenType::PROCEDURE)) {
-                declaracao_procedure();
-            } else if (match(TokenType::FUNCTION)) {
-                declaracao_function();
-            } else {
-                break;
-            }
-        }
-    }
-
-    void declaracoes_label() {
-        // expect(TokenType::LABEL, "Esperado 'label'");
-        expect(TokenType::INT_LIT, "Esperado número de label");
-
-        while (match(TokenType::COMMA)) {
-            expect(TokenType::INT_LIT, "Esperado número de label");
-        }
-
-        expect(TokenType::SEMICOLON, "Esperado ';' após declaração de label");
-    }
-
-    void declaracoes_const() {
-        // expect(TokenType::CONST, "Esperado 'const'");
-
-        do {
-            expect(TokenType::IDENTIFIER, "Esperado identificador de constante");
-            expect(TokenType::EQUAL, "Esperado '='");
-            if (!match(TokenType::INT_LIT) && !match(TokenType::REAL_LIT) && !match(TokenType::BOOL_LIT) && !match(TokenType::STRING_LIT)) {
-                std::cerr << "Erro: valor literal inválido em const\n";
-                exit(EXIT_FAILURE);
-            }
-            expect(TokenType::SEMICOLON, "Esperado ';'");
-        } while (current().type == TokenType::IDENTIFIER);
-    }
-
+    std::string TokenTypeToString(Tipo_de_token type); 
 };
+
+
+inline std::string Parser::TokenTypeToString(Tipo_de_token type) {
+    switch (type) {
+        case Tipo_de_token::PROGRAM: return "PROGRAM"; case Tipo_de_token::VAR: return "VAR";
+        case Tipo_de_token::BEGIN: return "BEGIN"; case Tipo_de_token::END: return "END";
+        case Tipo_de_token::INTEGER: return "INTEGER"; case Tipo_de_token::REAL: return "REAL";
+        case Tipo_de_token::ASSIGN: return ":="; case Tipo_de_token::SEMICOLON: return ";";
+        case Tipo_de_token::DOT: return "."; case Tipo_de_token::IDENTIFIER: return "identificador";
+        default: return "TOKEN_DESCONHECIDO";
+    }
+}
+
+inline std::unique_ptr<ProgramNode> Parser::program() {
+    expect(Tipo_de_token::PROGRAM, "Esperado 'program' no inicio do arquivo.");
+    Token name = expect(Tipo_de_token::IDENTIFIER, "Esperado nome do programa.");
+    expect(Tipo_de_token::SEMICOLON, "Esperado ';' apos nome do programa.");
+    
+    StmtPtr vars = nullptr;
+    if (peek().type == Tipo_de_token::VAR) {
+        vars = parseVarDecl();
+    }
+    
+    auto mainBlock = parseBlock();
+    expect(Tipo_de_token::DOT, "Esperado '.' no fim do programa.");
+    
+    return std::make_unique<ProgramNode>(name, std::move(vars), std::move(mainBlock));
+}
+
+inline StmtPtr Parser::parseVarDecl() {
+    expect(Tipo_de_token::VAR, "Esperado 'var'.");
+    std::vector<std::pair<Token, Token>> entries;
+    while (peek().type == Tipo_de_token::IDENTIFIER) {
+        std::vector<Token> idList;
+        idList.push_back(expect(Tipo_de_token::IDENTIFIER, "Esperado identificador."));
+        while (match(Tipo_de_token::COMMA)) {
+            idList.push_back(expect(Tipo_de_token::IDENTIFIER, "Esperado identificador apos a virgula."));
+        }
+        expect(Tipo_de_token::COLON, "Esperado ':' apos a lista de identificadores.");
+        Token type = advance();
+        expect(Tipo_de_token::SEMICOLON, "Esperado ';' apos a declaracao de tipo.");
+        
+        for (const auto& id : idList) {
+            entries.emplace_back(id, type);
+        }
+    }
+    return std::make_unique<VarSectionNode>(std::move(entries));
+}
+
+
+inline StmtPtr Parser::parseBlock() {
+    expect(Tipo_de_token::BEGIN, "Esperado 'begin' para iniciar um bloco.");
+    std::vector<StmtPtr> stmts;
+    while (peek().type != Tipo_de_token::END) {
+        stmts.push_back(parseStatement());
+    }
+    expect(Tipo_de_token::END, "Esperado 'end' para finalizar um bloco.");
+    return std::make_unique<BlockNode>(std::move(stmts));
+}
+
+inline StmtPtr Parser::parseStatement() {
+    StmtPtr stmt;
+    switch(peek().type) {
+        case Tipo_de_token::BEGIN:
+            stmt = parseBlock();
+            expect(Tipo_de_token::SEMICOLON, "Esperado ';' apos o bloco 'end'.");
+            break;
+        case Tipo_de_token::IDENTIFIER:
+            stmt = parseAssignment();
+            break;
+        case Tipo_de_token::IF:
+            stmt = parseIf();
+            break;
+        case Tipo_de_token::WHILE:
+            stmt = parseWhile();
+            break;
+        case Tipo_de_token::FOR:
+            stmt = parseFor();
+            break;
+        case Tipo_de_token::REPEAT:
+            stmt = parseRepeat();
+            break;
+        default:
+            throw std::runtime_error("Comando invalido ou inesperado na linha " + std::to_string(peek().line));
+    }
+    return stmt;
+}
+
+inline StmtPtr Parser::parseAssignment() {
+    Token target = expect(Tipo_de_token::IDENTIFIER, "Esperado identificador para atribuicao.");
+    expect(Tipo_de_token::ASSIGN, "Esperado ':=' para atribuicao.");
+    auto value = parseExpression();
+    expect(Tipo_de_token::SEMICOLON, "Esperado ';' no final do comando de atribuicao.");
+    return std::make_unique<AssignNode>(target, std::move(value));
+}
+
+inline ExprPtr Parser::parseExpression() {
+    return parseRelational();
+}
+
+inline ExprPtr Parser::parseRelational() {
+    auto left = parseAdditive();
+    while (peek().type == Tipo_de_token::EQUAL || peek().type == Tipo_de_token::NOT_EQUAL ||
+           peek().type == Tipo_de_token::LESS || peek().type == Tipo_de_token::GREATER ||
+           peek().type == Tipo_de_token::LESS_EQUAL || peek().type == Tipo_de_token::GREATER_EQUAL) {
+        Token op = advance();
+        auto right = parseAdditive();
+        left = std::make_unique<BinaryOpNode>(std::move(left), op, std::move(right));
+    }
+    return left;
+}
+
+inline ExprPtr Parser::parseAdditive() {
+    auto left = parseMultiplicative();
+    while (peek().type == Tipo_de_token::PLUS || peek().type == Tipo_de_token::MINUS) {
+        Token op = advance();
+        auto right = parseMultiplicative();
+        left = std::make_unique<BinaryOpNode>(std::move(left), op, std::move(right));
+    }
+    return left;
+}
+
+inline ExprPtr Parser::parseMultiplicative() {
+    auto left = parsePrimary();
+    while (peek().type == Tipo_de_token::MULTIPLY || peek().type == Tipo_de_token::DIVIDE || peek().type == Tipo_de_token::DIV) {
+        Token op = advance();
+        auto right = parsePrimary();
+        left = std::make_unique<BinaryOpNode>(std::move(left), op, std::move(right));
+    }
+    return left;
+}
+
+inline ExprPtr Parser::parsePrimary() {
+    if (peek().type == Tipo_de_token::INT_LIT || peek().type == Tipo_de_token::REAL_LIT ||
+        peek().type == Tipo_de_token::STRING_LIT || peek().type == Tipo_de_token::BOOL_LIT) {
+        return std::make_unique<LiteralNode>(advance());
+    }
+    if (peek().type == Tipo_de_token::IDENTIFIER) {
+        return std::make_unique<IdentifierNode>(advance());
+    }
+    if (match(Tipo_de_token::OPEN_PAREN)) {
+        auto expr = parseExpression();
+        expect(Tipo_de_token::CLOSE_PAREN, "Esperado ')' para fechar expressao.");
+        return expr;
+    }
+    throw std::runtime_error("Expressao primaria inesperada na linha " + std::to_string(peek().line));
+}
+
+inline StmtPtr Parser::parseIf() {
+    expect(Tipo_de_token::IF, "");
+    auto cond = parseExpression();
+    expect(Tipo_de_token::THEN, "Esperado 'then' apos a condicao do 'if'.");
+    auto thenBr = parseStatement();
+    StmtPtr elseBr = nullptr;
+    if (match(Tipo_de_token::ELSE)) {
+        elseBr = parseStatement();
+    }
+    return std::make_unique<IfNode>(std::move(cond), std::move(thenBr), std::move(elseBr));
+}
+
+inline StmtPtr Parser::parseWhile() {
+    expect(Tipo_de_token::WHILE, "");
+    auto cond = parseExpression();
+    expect(Tipo_de_token::DO, "Esperado 'do' no laco 'while'.");
+    auto body = parseStatement();
+    return std::make_unique<WhileNode>(std::move(cond), std::move(body));
+}
+
+inline StmtPtr Parser::parseFor() {
+    expect(Tipo_de_token::FOR, "");
+    Token var = expect(Tipo_de_token::IDENTIFIER, "Esperado variavel de controle para o 'for'.");
+    expect(Tipo_de_token::ASSIGN, "Esperado ':=' no laco 'for'.");
+    auto start = parseExpression();
+    bool toUp = (peek().type == Tipo_de_token::TO);
+    if (!toUp) expect(Tipo_de_token::DOWNTO, "Esperado 'to' ou 'downto'.");
+    else advance();
+    auto end = parseExpression();
+    expect(Tipo_de_token::DO, "Esperado 'do' no laco 'for'.");
+    auto body = parseStatement();
+    return std::make_unique<ForNode>(var, std::move(start), std::move(end), toUp, std::move(body));
+}
+
+inline StmtPtr Parser::parseRepeat() {
+    expect(Tipo_de_token::REPEAT, "");
+    std::vector<StmtPtr> stmts;
+    do {
+        stmts.push_back(parseStatement());
+    } while (peek().type != Tipo_de_token::UNTIL);
+    expect(Tipo_de_token::UNTIL, "");
+    auto cond = parseExpression();
+    expect(Tipo_de_token::SEMICOLON, "Esperado ';' apos o 'repeat...until'.");
+    return std::make_unique<RepeatNode>(std::move(stmts), std::move(cond));
+}
+
+#endif
